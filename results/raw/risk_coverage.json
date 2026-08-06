@@ -1,0 +1,85 @@
+{
+  "n_evaluated": 1331,
+  "n_no_candidate": 353,
+  "curve": [
+    {
+      "threshold": 0.05,
+      "risk": 0.6897069872276483,
+      "coverage": 1.0,
+      "n_auto": 1331,
+      "n_incorrect": 918,
+      "n_total": 1331
+    },
+    {
+      "threshold": 0.1,
+      "risk": 0.6714743589743589,
+      "coverage": 0.9376408715251691,
+      "n_auto": 1248,
+      "n_incorrect": 838,
+      "n_total": 1331
+    },
+    {
+      "threshold": 0.15,
+      "risk": 0.5466666666666666,
+      "coverage": 0.4507888805409467,
+      "n_auto": 600,
+      "n_incorrect": 328,
+      "n_total": 1331
+    },
+    {
+      "threshold": 0.2,
+      "risk": 0.5857142857142857,
+      "coverage": 0.31555221637866265,
+      "n_auto": 420,
+      "n_incorrect": 246,
+      "n_total": 1331
+    },
+    {
+      "threshold": 0.25,
+      "risk": 0.5625,
+      "coverage": 0.24042073628850488,
+      "n_auto": 320,
+      "n_incorrect": 180,
+      "n_total": 1331
+    },
+    {
+      "threshold": 0.3,
+      "risk": 0.3045977011494253,
+      "coverage": 0.13072877535687452,
+      "n_auto": 174,
+      "n_incorrect": 53,
+      "n_total": 1331
+    },
+    {
+      "threshold": 0.4,
+      "risk": 0.12857142857142856,
+      "coverage": 0.05259203606311044,
+      "n_auto": 70,
+      "n_incorrect": 9,
+      "n_total": 1331
+    },
+    {
+      "threshold": 0.5,
+      "risk": 0.15384615384615385,
+      "coverage": 0.009767092411720512,
+      "n_auto": 13,
+      "n_incorrect": 2,
+      "n_total": 1331
+    }
+  ],
+  "operating_point": {
+    "tau_c": 0.15,
+    "tau_e": 0.05,
+    "tau_m": 0.0
+  },
+  "thresholds_swept": [
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.4,
+    0.5
+  ]
+}

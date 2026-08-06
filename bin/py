@@ -1,0 +1,16 @@
+#!/bin/bash
+# Wrapper that runs paper3 scripts with the project's Linux venv interpreter.
+#
+# The venv lives OUTSIDE the project tree (~/Dev/paper3-venv/.venv) because the
+# project sits on an exFAT partition which cannot host symlinks — and a venv is
+# a forest of symlinks to the base interpreter. VENV_PATH below can be overridden
+# by setting PAPER3_VENV in the environment. paper3 itself is added to sys.path
+# so `import config` and `import kazmorph` resolve regardless of cwd.
+VENV_PATH="${PAPER3_VENV:-$HOME/Dev/paper3-venv/.venv}"
+if [ ! -x "$VENV_PATH/bin/python" ]; then
+    echo "bin/py: venv interpreter not found at $VENV_PATH/bin/python" >&2
+    echo "       create it with: uv venv --python 3.14 \"$VENV_PATH\"" >&2
+    echo "       or set PAPER3_VENV to point at an existing venv." >&2
+    exit 1
+fi
+exec "$VENV_PATH/bin/python" "$@"

@@ -1,0 +1,58 @@
+cff-version: 1.2.0
+message: "If you use this software or the reported results, please cite both the software and the paper."
+title: "paper3 — Neuro-Symbolic Correction of Kazakh Word Forms (IHCONCS 2026 supplementary code)"
+abstract: >
+  Experimental code and reproducible results for the IHCONCS 2026 work-in-progress
+  revision of "Neuro-Symbolic Correction of Kazakh Word Forms through Morphological
+  Analysis and Contextual Disambiguation." Implements five measurable quantities
+  (analyser coverage, candidate Recall@K, end-to-end P/R/F0.5/CER/WER,
+  false-correction rate, risk–coverage) on top of the vendored kazmorph pipeline.
+  No neural networks are trained here; the KazBERT POS/lemma checkpoints are
+  restored from kazmorph-2026 and used for inference only.
+authors:
+  - family-names: Baitenova
+    given-names: Laura
+  - family-names: Baikhojayev
+    given-names: Akhmed
+  - family-names: Tussupova
+    given-names: Saule
+  - family-names: Munaitbas
+    given-names: Gauhar
+  - family-names: Mukhamejanova
+    given-names: Gulnar
+  - family-names: Nurtaza
+    given-names: Daryn
+keywords:
+  - Kazakh
+  - spell correction
+  - neuro-symbolic
+  - morphology
+  - agglutinative
+  - false-correction rate
+  - selective abstention
+  - work in progress
+license: MIT
+funding:
+  - name: "Science Committee of the Ministry of Science and Higher Education of the Republic of Kazakhstan"
+    awardNumber: "AP23487753"
+type: software
+version: "0.1.0"
+date-released: "2026-08-06"
+preferred-citation:
+  type: unpublished
+  title: "Neuro-Symbolic Correction of Kazakh Word Forms through Morphological Analysis and Contextual Disambiguation (work in progress)"
+  authors:
+    - family-names: Baitenova
+      given-names: Laura
+    - family-names: Baikhojayev
+      given-names: Akhmed
+    - family-names: Tussupova
+      given-names: Saule
+    - family-names: Munaitbas
+      given-names: Gauhar
+    - family-names: Mukhamejanova
+      given-names: Gulnar
+    - family-names: Nurtaza
+      given-names: Daryn
+  year: 2026
+  notes: "Manuscript submitted to IHCONCS 2026; not yet peer-reviewed."

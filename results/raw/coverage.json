@@ -1,0 +1,86 @@
+{
+  "n_tokens": 8437,
+  "n_analysed": 8415,
+  "analysis_coverage": 0.9973924380704041,
+  "n_lemma_correct": 8131,
+  "lemma_recovery": 0.9637311840701671,
+  "n_multi_path": 5290,
+  "multi_path_fraction": 0.6270001185255423,
+  "per_upos_coverage": {
+    "ADJ": {
+      "total": 827,
+      "analysed": 825,
+      "coverage": 0.9975816203143894
+    },
+    "ADP": {
+      "total": 175,
+      "analysed": 175,
+      "coverage": 1.0
+    },
+    "ADV": {
+      "total": 304,
+      "analysed": 304,
+      "coverage": 1.0
+    },
+    "AUX": {
+      "total": 361,
+      "analysed": 356,
+      "coverage": 0.9861495844875346
+    },
+    "CCONJ": {
+      "total": 187,
+      "analysed": 187,
+      "coverage": 1.0
+    },
+    "DET": {
+      "total": 220,
+      "analysed": 220,
+      "coverage": 1.0
+    },
+    "INTJ": {
+      "total": 23,
+      "analysed": 23,
+      "coverage": 1.0
+    },
+    "NOUN": {
+      "total": 3100,
+      "analysed": 3095,
+      "coverage": 0.9983870967741936
+    },
+    "NUM": {
+      "total": 374,
+      "analysed": 374,
+      "coverage": 1.0
+    },
+    "PART": {
+      "total": 33,
+      "analysed": 31,
+      "coverage": 0.9393939393939394
+    },
+    "PRON": {
+      "total": 493,
+      "analysed": 493,
+      "coverage": 1.0
+    },
+    "PROPN": {
+      "total": 562,
+      "analysed": 554,
+      "coverage": 0.9857651245551602
+    },
+    "SCONJ": {
+      "total": 21,
+      "analysed": 21,
+      "coverage": 1.0
+    },
+    "VERB": {
+      "total": 1643,
+      "analysed": 1643,
+      "coverage": 1.0
+    },
+    "X": {
+      "total": 114,
+      "analysed": 114,
+      "coverage": 1.0
+    }
+  }
+}

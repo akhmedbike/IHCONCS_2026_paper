@@ -1,0 +1,9 @@
+{
+  "base_model": "Eraly-ml/KazBERT",
+  "folds": 1,
+  "fold_acc": [
+    0.8229249011857708
+  ],
+  "mean_acc": 0.8229249011857708,
+  "max_prefix": 24
+}

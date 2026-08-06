@@ -1,0 +1,105 @@
+{
+  "n_folds": 5,
+  "n_test_sentences": 1078,
+  "rare_frequency_threshold": 1,
+  "binary": {
+    "fcr_per_fold": [
+      0.009267431597528684,
+      0.011288805268109126,
+      0.012141816415735794,
+      0.008962264150943396,
+      0.04376590330788804
+    ],
+    "n_tokens": 10536,
+    "n_changed": 175,
+    "fcr": 0.01660971905846621,
+    "decision_mix": {
+      "KEEP": 10361,
+      "CORRECT": 175
+    },
+    "by_class": {
+      "oov": {
+        "total": 7539,
+        "changed": 169,
+        "fcr": 0.022416766149356677
+      },
+      "common": {
+        "total": 2215,
+        "changed": 0,
+        "fcr": 0.0
+      },
+      "proper_name": {
+        "total": 562,
+        "changed": 6,
+        "fcr": 0.010676156583629894
+      },
+      "borrowing": {
+        "total": 220,
+        "changed": 0,
+        "fcr": 0.0
+      }
+    },
+    "by_rarity": {
+      "rare": {
+        "total": 56,
+        "changed": 1,
+        "fcr": 0.017857142857142856
+      },
+      "common": {
+        "total": 10480,
+        "changed": 174,
+        "fcr": 0.016603053435114503
+      }
+    }
+  },
+  "three_way": {
+    "fcr_per_fold": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "n_tokens": 10536,
+    "n_changed": 0,
+    "fcr": 0.0,
+    "decision_mix": {
+      "KEEP": 10228,
+      "REVIEW": 308
+    },
+    "by_class": {
+      "oov": {
+        "total": 7539,
+        "changed": 0,
+        "fcr": 0.0
+      },
+      "common": {
+        "total": 2215,
+        "changed": 0,
+        "fcr": 0.0
+      },
+      "proper_name": {
+        "total": 562,
+        "changed": 0,
+        "fcr": 0.0
+      },
+      "borrowing": {
+        "total": 220,
+        "changed": 0,
+        "fcr": 0.0
+      }
+    },
+    "by_rarity": {
+      "rare": {
+        "total": 56,
+        "changed": 0,
+        "fcr": 0.0
+      },
+      "common": {
+        "total": 10480,
+        "changed": 0,
+        "fcr": 0.0
+      }
+    }
+  }
+}

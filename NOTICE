@@ -1,0 +1,43 @@
+paper3 — third-party material and data licenses
+================================================
+
+This project bundles or references third-party material. The MIT license in
+LICENSE covers the project's own source code only; the data and model
+artefacts carry their own terms, summarised below.
+
+UD Kazakh-KTB (data/*.conllu, excluding silver_* files)
+-------------------------------------------------------
+Source:   https://github.com/UniversalDependencies/UD_Kazakh-KTB
+License:  CC BY-NC-SA 3.0
+          (https://creativecommons.org/licenses/by-nc-sa/3.0/)
+Note:     The Universal Dependencies treebanks are redistributed here in the
+          vendored .conllu form used by the experiments. Attribution:
+          de Marneffe, Manning, Nivre, Zeman (2021), Computational
+          Linguistics 47(2). If you adapt or redistribute these files, the
+          CC BY-NC-SA share-alike and non-commercial clauses apply.
+
+Apertium-kaz silver data (data/silver_apertium.conllu,
+data/silver_sentences.conllu, data/silver_lemmas*.tsv)
+-------------------------------------------------------
+Source:   https://github.com/apertium/apertium-kaz
+License:  GNU GPL v2 or later (apertium-kaz).
+          The silver CoNLL-U files here are derivative outputs produced by
+          scripts/make_silver.py (parsing Apertium's CG-3 stream output
+          through the official apertium-kaz.udx UPOS mapping).
+Note:     Used ONLY for corpus-frequency estimation in this paper
+          (experiments/freq.py), never as gold labels. Excluded from the gold
+          pool automatically by kazmorph.corpus.load_pool() (the silver_
+          filename prefix).
+
+KazBERT (models/neural_pos, models/neural_lemma — configs/tokenizers only)
+--------------------------------------------------------------------------
+Source:   https://huggingface.co/Eraly-ml/KazBERT
+License:  Apache 2.0 (Eraly-ml/KazBERT model card).
+Note:     The model WEIGHTS (~421 MB each) are not committed to this repo
+          (see .gitignore); restore them from the upstream kazmorph-2026
+          project or re-fine-tune with scripts/restore_models.sh. Only the
+          config.json, tokenizer, and calibration metadata are tracked.
+
+Contact
+-------
+For data-licensing questions, open an issue on the project's GitHub page.

@@ -6,6 +6,28 @@ __pycache__/
 # C extensions
 *.so
 
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two carriage returns
+Icon
+
+
+# Thumbnails
+._*
+
+# Files that might appear on external disks / network shares
+.Spotlight-V100
+.Trashes
+
+# Directories potential used by system tools
+.DocumentRevisions-V100
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
 # Distribution / packaging
 .Python
 build/
@@ -25,6 +47,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
@@ -216,3 +239,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Trained model weights — too large for git (>100MB), regenerate via training
+# or fetch from the release archive. See README.
+*.safetensors
+*.pt
+*.bin
+*.ckpt

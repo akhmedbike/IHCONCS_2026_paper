@@ -1,0 +1,31 @@
+# paper3 — IHCONCS 2026 correction experiments
+#
+# Python 3.14. Heavy ML deps are inference-only (no training in this repo).
+#
+# IMPORTANT: torch must be installed from the CUDA wheel index so that
+# pick_device() (kazmorph/device.py) returns a CUDA device on the Linux/GPU
+# machine (RTX 4070 Laptop, Ada sm_89). The cu128 wheels bundle their own CUDA
+# 12.8 runtime and work with NVIDIA driver >= 525.
+#
+#   uv pip install --python <venv>/bin/python \
+#       --index https://download.pytorch.org/whl/cu128 -r requirements.txt
+#
+# or, equivalently:
+#
+#   uv pip install --python <venv>/bin/python \
+#       --index https://download.pytorch.org/whl/cu128 torch
+#   uv pip install --python <venv>/bin/python -r requirements.txt
+#
+# (torch is listed here for documentation; install it from the cu128 index
+#  above, not from PyPI, or you will get the CPU-only build.)
+
+# torch 2.10.0 is the first release shipping cp314 + cu128 wheels; on the
+# target Ada GPU it runs the KazBERT forward passes on CUDA instead of CPU.
+torch>=2.10.0
+
+transformers>=4.44
+numpy>=1.26
+scikit-learn>=1.4
+sklearn-crfsuite>=0.5.0     # used by kazmorph.crf_tagger to load models/crf_model.joblib
+joblib>=1.4
+matplotlib>=3.8             # only experiments/make_risk_coverage.py (Fig. 5)
