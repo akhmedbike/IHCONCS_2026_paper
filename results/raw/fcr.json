@@ -1,54 +1,72 @@
 {
-  "n_folds": 5,
-  "n_test_sentences": 1078,
+  "calibration_fold": 0,
+  "eval_folds": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "n_folds": 4,
+  "n_test_sentences": 862,
   "rare_frequency_threshold": 1,
   "binary": {
     "fcr_per_fold": [
-      0.009267431597528684,
       0.011288805268109126,
       0.012141816415735794,
       0.008962264150943396,
       0.04376590330788804
     ],
-    "n_tokens": 10536,
-    "n_changed": 175,
-    "fcr": 0.01660971905846621,
+    "n_tokens": 8270,
+    "n_changed": 154,
+    "fcr": 0.018621523579201934,
     "decision_mix": {
-      "KEEP": 10361,
-      "CORRECT": 175
+      "KEEP": 8116,
+      "CORRECT": 154
     },
     "by_class": {
-      "oov": {
-        "total": 7539,
-        "changed": 169,
-        "fcr": 0.022416766149356677
+      "not_in_lexicon": {
+        "total": 5870,
+        "changed": 148,
+        "fcr": 0.025212947189097105
       },
       "common": {
-        "total": 2215,
+        "total": 1773,
         "changed": 0,
         "fcr": 0.0
       },
       "proper_name": {
-        "total": 562,
+        "total": 440,
         "changed": 6,
-        "fcr": 0.010676156583629894
+        "fcr": 0.013636363636363636
       },
       "borrowing": {
-        "total": 220,
+        "total": 187,
+        "changed": 0,
+        "fcr": 0.0
+      }
+    },
+    "by_analyzer": {
+      "rma_known": {
+        "total": 8249,
+        "changed": 154,
+        "fcr": 0.018668929567220268
+      },
+      "rma_unknown": {
+        "total": 21,
         "changed": 0,
         "fcr": 0.0
       }
     },
     "by_rarity": {
       "rare": {
-        "total": 56,
+        "total": 52,
         "changed": 1,
-        "fcr": 0.017857142857142856
+        "fcr": 0.019230769230769232
       },
       "common": {
-        "total": 10480,
-        "changed": 174,
-        "fcr": 0.016603053435114503
+        "total": 8218,
+        "changed": 153,
+        "fcr": 0.018617668532489657
       }
     }
   },
@@ -57,46 +75,57 @@
       0.0,
       0.0,
       0.0,
-      0.0,
       0.0
     ],
-    "n_tokens": 10536,
+    "n_tokens": 8270,
     "n_changed": 0,
     "fcr": 0.0,
     "decision_mix": {
-      "KEEP": 10228,
-      "REVIEW": 308
+      "KEEP": 7996,
+      "REVIEW": 274
     },
     "by_class": {
-      "oov": {
-        "total": 7539,
+      "not_in_lexicon": {
+        "total": 5870,
         "changed": 0,
         "fcr": 0.0
       },
       "common": {
-        "total": 2215,
+        "total": 1773,
         "changed": 0,
         "fcr": 0.0
       },
       "proper_name": {
-        "total": 562,
+        "total": 440,
         "changed": 0,
         "fcr": 0.0
       },
       "borrowing": {
-        "total": 220,
+        "total": 187,
+        "changed": 0,
+        "fcr": 0.0
+      }
+    },
+    "by_analyzer": {
+      "rma_known": {
+        "total": 8249,
+        "changed": 0,
+        "fcr": 0.0
+      },
+      "rma_unknown": {
+        "total": 21,
         "changed": 0,
         "fcr": 0.0
       }
     },
     "by_rarity": {
       "rare": {
-        "total": 56,
+        "total": 52,
         "changed": 0,
         "fcr": 0.0
       },
       "common": {
-        "total": 10480,
+        "total": 8218,
         "changed": 0,
         "fcr": 0.0
       }

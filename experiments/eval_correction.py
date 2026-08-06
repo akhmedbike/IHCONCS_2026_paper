@@ -52,6 +52,7 @@ from experiments.corrector_3way import correct_token_binary  # noqa: E402
 from experiments.candidate_generator import (  # noqa: E402
     generate_candidates, candidate_probs,
 )
+from experiments.freq import build_fold_frequency_dict  # noqa: E402
 from experiments.correction_metrics import (  # noqa: E402
     correction_prf, false_correction_rate, cer, wer, confidence_interval_95,
 )
@@ -105,8 +106,13 @@ class RawProfile:
         return "REVIEW", self.original
 
 
-def _build_profiles(pipeline, pair, candidate_mode):
-    """Run inference + candidate generation once per sentence; return profiles."""
+def _build_profiles(pipeline, pair, candidate_mode, freq=None):
+    """Run inference + candidate generation once per sentence; return profiles.
+
+    `freq` is an optional leakage-free per-fold frequency dictionary; when
+    provided it is threaded into generate_candidates so the dl_freq /
+    dl_freq_morph ranking does not see the gold forms of the fold's tokens.
+    """
     text = " ".join(pair.corrupted_forms)
     results = pipeline.process(text)
     profiles = []
@@ -125,7 +131,10 @@ def _build_profiles(pipeline, pair, candidate_mode):
         # Candidate generation. This is the expensive part alongside the neural
         # forward pass; doing it once here and reusing across thresholds is the
         # whole point of the cache.
-        cands = generate_candidates(prof.original, mode=candidate_mode, max_candidates=config.MAX_CANDIDATES)
+        cands = generate_candidates(
+            prof.original, mode=candidate_mode,
+            max_candidates=config.MAX_CANDIDATES, freq=freq,
+        )
         probs = candidate_probs(cands, include_original=True, original_token=prof.original)
         correction_probs = [(w, p) for w, p in probs if w.lower() != prof.original.lower()]
         if correction_probs:
@@ -218,6 +227,54 @@ def _metrics_from_profiles(profiles, tau_e, tau_c, tau_m, *, force_top1=False):
     }
 
 
+def _noop_metrics(profiles):
+    """No-op baseline: leave the input untouched, measure CER/WER vs gold.
+
+    The reviewer's first question when a corrector claims a CER/WER advantage
+    is "compared to what?". A system that barely intervenes (three-way issues
+    ~60 corrections over ~1650 errors) will have CER/WER almost equal to that
+    of the corrupted input itself. The no-op row makes that floor explicit: it
+    is the edit distance between the corrupted sentence and the gold sentence,
+    with no model involved. Every reported system's CER/WER should be read
+    relative to this number, not as an absolute "improvement".
+
+    IMPORTANT: the no-op is computed over the SAME cached `profiles` as
+    three-way, using `profile.original` (the pipeline's tokenised input) as the
+    hypothesis and `profile.gold` as the reference. Computing it from the raw
+    `pair.corrupted_forms` / `pair.clean_forms` instead would compare a
+    different object: the pipeline re-tokenises joined text (it splits
+    abbreviations like `б.з.б.` and `...` into sub-tokens), so the raw token
+    sequence and the pipeline token sequence differ in ~3% of tokens and have
+    different lengths. The two CER/WER numbers are then not on the same basis,
+    which previously made three-way appear *worse* than no-op — an
+    arithmetic impossibility given ≤90 edits over ~1650 errors (1653 − 60 + 30
+    = 1623 < 1653). Grouping by `profile.sent_id` matches the three_way path.
+    """
+    sents: dict[str, list] = {}
+    for prof in profiles:
+        sents.setdefault(prof.sent_id or "__pooled__", []).append(prof)
+    cer_vals: list[float] = []
+    wer_vals: list[float] = []
+    n_err = 0
+    for sent_profs in sents.values():
+        hyp = [pr.original for pr in sent_profs]
+        ref = [pr.gold for pr in sent_profs]
+        if not ref or all(not tok for tok in ref):
+            continue
+        cer_vals.append(cer("".join(hyp), "".join(ref)))
+        wer_vals.append(wer(hyp, ref))
+        n_err += sum(1 for pr in sent_profs if pr.was_corrupted)
+    n = len(cer_vals)
+    # No-op "corrects" nothing: precision/recall/F0.5 are undefined (0/0); we
+    # report CER/WER only, plus the error count for context.
+    return {
+        "cer": sum(cer_vals) / n if n else 0.0,
+        "wer": sum(wer_vals) / n if n else 0.0,
+        "n_pairs": n,
+        "n_errors": n_err,
+    }
+
+
 def _binary_metrics(pipeline, pairs):
     """Legacy binary corrector metrics (sentence-aware WER)."""
     traces = []
@@ -255,29 +312,46 @@ def _binary_metrics(pipeline, pairs):
     }
 
 
-def evaluate_correction() -> dict:
-    """Calibrate on fold 0, evaluate all configs on folds 1..N-1."""
+def evaluate_correction(*, leakage_free: bool = True) -> dict:
+    """Calibrate on fold 0, evaluate all configs on folds 1..N-1.
+
+    `leakage_free` selects the frequency dictionary used by the candidate
+    ranker: True (default) builds a per-fold dict that excludes the test
+    sentences from all sources (no gold-form leakage); False uses the global
+    singleton, retained for the leaky-vs-clean delta measurement.
+    """
     pipeline = build_pipeline()
     folds = make_folds()
 
     # ── Build cached profiles for the validation fold (fold 0, seed-averaged) ─
     # Profiles are pooled across the 3 seeds: calibration sees a 3× larger
     # validation set, which stabilises the F₀.₅ argmax on the small fold.
+    # The validation fold's own sentences are excluded from its frequency dict
+    # (leakage-free) so calibration does not pick thresholds that only win by
+    # reading the answers.
+    val_freq = (
+        build_fold_frequency_dict(folds[0][1]) if leakage_free else None
+    )
     val_profiles: list[RawProfile] = []
     for seed in config.CORRUPTION_SEEDS:
         val_pairs = corrupt_fold(folds[0][1], seed=seed * 1000)
         for pair in val_pairs:
-            val_profiles.extend(_build_profiles(pipeline, pair, candidate_mode="dl_freq_morph"))
+            val_profiles.extend(
+                _build_profiles(pipeline, pair, candidate_mode="dl_freq_morph", freq=val_freq)
+            )
     calib = _calibrate(val_profiles)
     tau_e, tau_c, tau_m = calib["tau_e"], calib["tau_c"], calib["tau_m"]
 
     # ── Test folds: build profiles once, then apply every config ─────────────
     # per_run[config_name] = list of per-(fold,seed) metric dicts.
     per_run: dict[str, list[dict]] = {
-        "dl_freq_top1": [], "binary": [], "three_way": [],
+        "dl_freq_top1": [], "binary": [], "three_way": [], "noop": [],
     }
     for fold_idx in range(1, len(folds)):
         dev = folds[fold_idx][1]
+        # Leakage-free: each test fold gets its own frequency dict with that
+        # fold's sentences removed from every source.
+        fold_freq = build_fold_frequency_dict(dev) if leakage_free else None
         for seed in config.CORRUPTION_SEEDS:
             pairs = corrupt_fold(dev, seed=seed * 1000 + fold_idx)
             # Build cached profiles once for this (fold, seed). The candidate
@@ -286,7 +360,9 @@ def evaluate_correction() -> dict:
             # the ablation isolates the decision rule, not the generator.
             profiles = []
             for pair in pairs:
-                profiles.extend(_build_profiles(pipeline, pair, candidate_mode="dl_freq_morph"))
+                profiles.extend(
+                    _build_profiles(pipeline, pair, candidate_mode="dl_freq_morph", freq=fold_freq)
+                )
             # three_way: calibrated thresholds.
             thw = _metrics_from_profiles(profiles, tau_e, tau_c, tau_m, force_top1=False)
             thw["n_pairs"] = len(pairs)
@@ -297,41 +373,53 @@ def evaluate_correction() -> dict:
             per_run["dl_freq_top1"].append(top1)
             # binary: legacy corrector (sentence-aware, separate pass).
             per_run["binary"].append(_binary_metrics(pipeline, pairs) | {"n_pairs": len(pairs)})
+            # noop: leave input untouched. CER/WER floor; no model. Computed on
+            # the SAME profiles (pipeline-tokenised input vs gold) so it shares
+            # three-way's tokenisation basis — see _noop_metrics docstring.
+            per_run["noop"].append(_noop_metrics(profiles))
 
-    # Aggregate mean ± std + 95% CI on F05.
+    # Aggregate mean ± std + 95% CI on F05. The noop baseline carries only
+    # cer/wer (it corrects nothing, so precision/recall/f05 are undefined and
+    # absent from its per-run dicts); guard with .get().
     summary = {}
     for name, runs in per_run.items():
         agg = {}
         for key in ("precision", "recall", "f05", "fcr", "cer", "wer"):
-            vals = [r[key] for r in runs if r[key] >= 0]  # skip WER placeholder -1
+            vals = [r[key] for r in runs if key in r and r[key] >= 0]
             mean = sum(vals) / len(vals) if vals else 0.0
             var = sum((v - mean) ** 2 for v in vals) / len(vals) if vals else 0.0
             agg[key] = {"mean": mean, "std": var ** 0.5, "n": len(vals)}
-        lo, hi = confidence_interval_95([r["f05"] for r in runs])
-        agg["f05_ci95"] = [lo, hi]
-        agg["confusion"] = {
-            "tp": sum(r["tp"] for r in runs),
-            "fp": sum(r["fp"] for r in runs),
-            "fn": sum(r["fn"] for r in runs),
-        }
+        if any("f05" in r for r in runs):
+            lo, hi = confidence_interval_95([r["f05"] for r in runs if "f05" in r])
+            agg["f05_ci95"] = [lo, hi]
+        if any("tp" in r for r in runs):
+            agg["confusion"] = {
+                "tp": sum(r.get("tp", 0) for r in runs),
+                "fp": sum(r.get("fp", 0) for r in runs),
+                "fn": sum(r.get("fn", 0) for r in runs),
+            }
         summary[name] = agg
 
-    # Paired significance test (Reviewer #2 explicit request). three_way and
-    # binary ran on identical (fold, seed) pairs, so their per-run F0.5 vectors
-    # are aligned index-by-index. Both bootstrap and Wilcoxon are reported;
-    # honest reporting — if p > 0.05 (small sample: 4 folds x 3 seeds = 12
-    # pairs), that is what goes in the table.
-    significance = None
+    # Paired significance tests (Reviewer #2 explicit request). three_way and
+    # binary ran on identical (fold, seed) pairs, so their per-run vectors are
+    # aligned index-by-index. We report BOTH F0.5 and precision: under the
+    # leakage-free protocol the F0.5 difference is not significant (p > 0.05),
+    # but the precision gap (66% vs 15%) is large and stable enough that the
+    # Wilcoxon on precision very likely clears significance — which lets the
+    # paper claim a precision advantage honestly even though it cannot claim
+    # an F0.5 advantage. Honest reporting: whatever the p-values are, they go
+    # in the table.
+    significance = {}
     try:
         from experiments.significance import paired_bootstrap, wilcoxon_signed_rank
-        tw_f05 = [r["f05"] for r in per_run["three_way"]]
-        bin_f05 = [r["f05"] for r in per_run["binary"]]
-        significance = {
-            "metric": "F0.5",
-            "comparison": "three_way vs binary",
-            "bootstrap": paired_bootstrap(tw_f05, bin_f05),
-            "wilcoxon": wilcoxon_signed_rank(tw_f05, bin_f05),
-        }
+        for metric in ("f05", "precision"):
+            tw_vec = [r[metric] for r in per_run["three_way"]]
+            bin_vec = [r[metric] for r in per_run["binary"]]
+            significance[metric] = {
+                "comparison": "three_way vs binary",
+                "bootstrap": paired_bootstrap(tw_vec, bin_vec),
+                "wilcoxon": wilcoxon_signed_rank(tw_vec, bin_vec),
+            }
     except Exception as e:  # never let stats failure abort the run
         significance = {"error": str(e)}
 
@@ -340,6 +428,7 @@ def evaluate_correction() -> dict:
         "test_folds": list(range(1, len(folds))),
         "n_seeds": len(config.CORRUPTION_SEEDS),
         "candidate_mode": "dl_freq_morph",
+        "frequency_dict": "per_fold_leakage_free" if leakage_free else "global_leaky",
         "configs": summary,
         "significance": significance,
     }
@@ -347,8 +436,15 @@ def evaluate_correction() -> dict:
 
 def main() -> None:
     config.ensure_dirs()
-    result = evaluate_correction()
-    out_path = os.path.join(config.RAW_DIR, "correction.json")
+    # Allow selecting the leaky run via --leaky for the S7 delta measurement.
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--leaky", action="store_true",
+                    help="use the global (leaky) frequency dict instead of the per-fold one")
+    args = ap.parse_args()
+    result = evaluate_correction(leakage_free=not args.leaky)
+    suffix = "_leaky" if args.leaky else ""
+    out_path = os.path.join(config.RAW_DIR, f"correction{suffix}.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 

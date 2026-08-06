@@ -39,14 +39,19 @@ import config  # noqa: E402
 from experiments._pipeline import make_folds  # noqa: E402
 from experiments.corrupt import corrupt_fold  # noqa: E402
 from experiments.candidate_generator import generate_candidates  # noqa: E402
+from experiments.freq import build_fold_frequency_dict  # noqa: E402
 from experiments.correction_metrics import recall_at_k, rank_of, mean_reciprocal_rank  # noqa: E402
 
 
 _MODES = ("dl", "dl_freq", "dl_fst_filter", "dl_freq_morph")
 
 
-def _evaluate_one_pass(pairs, mode: str) -> dict:
-    """Compute Recall@K and MRR over one set of corrupted pairs, one mode."""
+def _evaluate_one_pass(pairs, mode: str, freq=None) -> dict:
+    """Compute Recall@K and MRR over one set of corrupted pairs, one mode.
+
+    `freq` is an optional leakage-free per-fold frequency dictionary threaded
+    into the dl_freq / dl_freq_morph ranking.
+    """
     # Per-token hit indicators, one list per K. We resolve rank once and derive
     # every K from it, so we scan candidates only once per token.
     ranks: list[int] = []
@@ -57,7 +62,7 @@ def _evaluate_one_pass(pairs, mode: str) -> dict:
             continue
         c = p.corruption
         # The corrupted form is the generator's input; the gold is the original.
-        cands = generate_candidates(c.corrupted, mode=mode, max_candidates=10)
+        cands = generate_candidates(c.corrupted, mode=mode, max_candidates=10, freq=freq)
         cand_words = [w for w, _ in cands]
         r = rank_of(c.original, cand_words)
         ranks.append(r)
@@ -78,20 +83,25 @@ def _evaluate_one_pass(pairs, mode: str) -> dict:
     }
 
 
-def evaluate_candidate_recall() -> dict:
-    """Run Recall@K over folds × corruption seeds for every mode."""
+def evaluate_candidate_recall(*, leakage_free: bool = True) -> dict:
+    """Run Recall@K over folds × corruption seeds for every mode.
+
+    `leakage_free` selects the per-fold frequency dictionary (default) or the
+    global leaky one, matching evaluate_correction.
+    """
     folds = make_folds()
     # results[mode] = { "per_fold_seed": [ {metrics} ], "mean": {...}, "std": {...} }
     results: dict[str, dict] = {}
     for mode in _MODES:
         per_run: list[dict] = []
         for fold_idx, (_train, dev) in enumerate(folds):
+            fold_freq = build_fold_frequency_dict(dev) if leakage_free else None
             for seed_idx, seed in enumerate(config.CORRUPTION_SEEDS):
                 # Combine fold index into the seed so each (fold, seed) pair
                 # gets a distinct, reproducible RNG state.
                 rng_seed = seed * 1000 + fold_idx
                 pairs = corrupt_fold(dev, seed=rng_seed)
-                metrics = _evaluate_one_pass(pairs, mode)
+                metrics = _evaluate_one_pass(pairs, mode, freq=fold_freq)
                 metrics["fold"] = fold_idx
                 metrics["seed"] = seed
                 per_run.append(metrics)
@@ -113,6 +123,7 @@ def evaluate_candidate_recall() -> dict:
     for br_mode in ("dl_freq_morph", "dl_fst_filter"):
         cat_breakdown: dict[str, dict] = {}
         for fold_idx, (_train, dev) in enumerate(folds):
+            fold_freq = build_fold_frequency_dict(dev) if leakage_free else None
             rng_seed = config.CORRUPTION_SEEDS[0] * 1000 + fold_idx
             pairs = corrupt_fold(dev, seed=rng_seed)
             for p in pairs:
@@ -120,7 +131,7 @@ def evaluate_candidate_recall() -> dict:
                     continue
                 cat = p.corruption.category
                 bucket = cat_breakdown.setdefault(cat, {"ranks": [], "n": 0})
-                cands = generate_candidates(p.corruption.corrupted, mode=br_mode, max_candidates=10)
+                cands = generate_candidates(p.corruption.corrupted, mode=br_mode, max_candidates=10, freq=fold_freq)
                 bucket["ranks"].append(rank_of(p.corruption.original, [w for w, _ in cands]))
                 bucket["n"] += 1
         cat_summary = {}
@@ -137,6 +148,7 @@ def evaluate_candidate_recall() -> dict:
     return {
         "n_folds": len(folds),
         "n_seeds": len(config.CORRUPTION_SEEDS),
+        "frequency_dict": "per_fold_leakage_free" if leakage_free else "global_leaky",
         "modes": {m: results[m]["aggregate"] for m in _MODES},
         "per_category_dl_fst_filter": per_category["dl_fst_filter"],
         "per_category_dl_freq_morph": per_category["dl_freq_morph"],
@@ -145,8 +157,14 @@ def evaluate_candidate_recall() -> dict:
 
 def main() -> None:
     config.ensure_dirs()
-    result = evaluate_candidate_recall()
-    out_path = os.path.join(config.RAW_DIR, "candidate_recall.json")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--leaky", action="store_true",
+                    help="use the global (leaky) frequency dict instead of the per-fold one")
+    args = ap.parse_args()
+    result = evaluate_candidate_recall(leakage_free=not args.leaky)
+    suffix = "_leaky" if args.leaky else ""
+    out_path = os.path.join(config.RAW_DIR, f"candidate_recall{suffix}.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 

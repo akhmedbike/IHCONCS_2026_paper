@@ -23,6 +23,7 @@ if _ROOT not in sys.path:
 
 from kazmorph.pipeline import Pipeline  # noqa: E402
 from kazmorph.corpus import load_pool, stratified_kfold  # noqa: E402
+from kazmorph.device import enable_determinism  # noqa: E402
 
 import config  # noqa: E402
 
@@ -34,7 +35,11 @@ def build_pipeline(*, routing: bool = False, mfrn_scoring: bool = False) -> Pipe
     which is the production path and the one used for all reported numbers.
     `routing=True` enables the error-class-conditioned fusion (paper §"routing"),
     used only for the routing ablation if reported.
+
+    Determinism is enabled once per process: KazBERT forward on MPS/CUDA is
+    otherwise bit-non-deterministic, which drifts TP/FP across runs.
     """
+    enable_determinism()
     return Pipeline(
         crf_model_path=config.CRF_MODEL_PATH,
         neural_model_path=config.NEURAL_POS_PATH,

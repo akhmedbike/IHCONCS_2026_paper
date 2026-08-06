@@ -228,10 +228,16 @@ def correction_prf(
           "was_corrupted": bool,  # True iff the input token was actually corrupted
         }
 
-    Counting convention:
+    Counting convention (GEC standard, fixed denominator E = tp + fn):
       * A CORRECT counts as a true positive iff predicted == gold.
       * A CORRECT to the wrong form is a false positive (the system changed a
-        token, just not to the right thing).
+        token, just not to the right thing). Crucially, if that token was
+        itself corrupted, the original error ALSO went unfixed — the gold form
+        was never produced — so it is counted as a false negative as well.
+        This keeps the recall denominator E = tp + fn equal to the number of
+        injected errors regardless of how often the system mis-edits; a
+        system that changes many tokens to wrong forms cannot inflate its
+        recall by shrinking the denominator.
       * A token that was corrupted but NOT corrected (KEEP or REVIEW-with-
         original-retained) is a false negative: the error survived.
       * FCR (false-correction rate) is computed separately, only over
@@ -249,7 +255,13 @@ def correction_prf(
             if pred.lower() == gold.lower():
                 tp += 1
             else:
+                # Wrong correction: a false positive always (an unjustified
+                # change was made), and — if the token was corrupted — also a
+                # false negative, because the injected error was not resolved
+                # to the gold form. Both increments apply.
                 fp += 1
+                if corrupted:
+                    fn += 1
         else:  # KEEP or REVIEW (both retain the original input)
             if corrupted:
                 # The input error survived → false negative for correction recall.

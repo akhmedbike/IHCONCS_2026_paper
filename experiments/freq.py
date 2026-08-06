@@ -17,6 +17,27 @@ Silver data is used ONLY for frequency estimation, never as a gold label or
 for model training in this paper. That matches the paper's stated role for
 the silver corpus (Table 1: "frequency estimation and contextual pretraining")
 and avoids any overlap with the evaluation gold.
+
+Leakage note (corrected). The gold evaluation pool is the deduplicated union
+of every non-silver .conllu in data/ (kazmorph.corpus.load_pool). Two of the
+three frequency sources overlap that pool:
+  * train_split.conllu shares ~85% of its sentences with the test/dev folds
+    (it is an 85/15 stratified split of the *same* corpus the folds are drawn
+    from, see kazmorph.corpus docstring).
+  * silver_apertium.conllu shares ~78% of its sentences with the test pool,
+    because it was built by running Apertium over the same KTB texts.
+Only silver_sentences.conllu is disjoint from the pool (independent literary
+texts). A globally-built dictionary from the union therefore leaks the gold
+forms of the very tokens being corrected into the frequency tie-break of the
+dl_freq / dl_freq_morph candidate rankers — the main rows of Tables 3 and 4.
+
+The leakage-free construction is per-fold: build_fold_frequency_dict takes
+the dev (test) sentences of the current fold and excludes any source sentence
+whose normalised token fingerprint matches one of them, from BOTH gold and
+silver sources. This removes both leakages while preserving the bulk of the
+frequency signal (the excluded share is small — see build_frequency_dict's
+provenance counts). The original global build_frequency_dict / get_frequency_dict
+are retained for backward compatibility and for the leaky-vs-clean delta run.
 """
 
 from __future__ import annotations
@@ -91,6 +112,112 @@ def frequency_of(form: str, freq: dict[str, int]) -> int:
     candidates from receiving -inf energy.
     """
     return freq.get(form.lower(), 0)
+
+
+def _fingerprint_from_lines(lines) -> tuple[str, ...] | None:
+    """Lowercased token-sequence fingerprint of one CoNLL-U sentence block.
+
+    Mirrors kazmorph.corpus.Sentence.fingerprint so exclusion matches the
+    pool's own dedup key. Returns None for an empty/non-sentence block.
+    """
+    forms: list[str] = []
+    for line in lines:
+        line = line.rstrip("\n")
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 4:
+            continue
+        tid = parts[0]
+        if "-" in tid or "." in tid:
+            continue
+        form = parts[1].strip()
+        if form:
+            forms.append(form.lower())
+    return tuple(forms) if forms else None
+
+
+def _iter_sentence_blocks(path: str):
+    """Yield (fingerprint, lines) pairs, one per sentence in a CoNLL-U file."""
+    if not os.path.exists(path):
+        return
+    block: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if line.strip() == "":
+                fp = _fingerprint_from_lines(block)
+                if fp is not None:
+                    yield fp, block
+                block = []
+            else:
+                block.append(line)
+    fp = _fingerprint_from_lines(block)
+    if fp is not None:
+        yield fp, block
+
+
+def build_fold_frequency_dict(
+    excluded_sentences, *, source_paths: list[str] | None = None,
+) -> dict[str, int]:
+    """Leakage-free per-fold frequency dictionary.
+
+    Counts lowercased surface forms from the union of the gold train split and
+    both silver corpora (the same sources as build_frequency_dict), but EXCLUDES
+    any source sentence whose normalised fingerprint matches a sentence in
+    `excluded_sentences` — the dev (test) half of the current cross-validation
+    fold. This removes the gold-form leakage from train_split.conllu (~85% pool
+    overlap) and the text-overlap leakage from silver_apertium.conllu (~78%
+    pool overlap), leaving only frequency signal from sentences the fold never
+    evaluates on.
+
+    `excluded_sentences` is an iterable of kazmorph.corpus.Sentence (or any
+    object exposing a `.fingerprint()` method / lowercased-forms tuple).
+    `source_paths` defaults to the three canonical sources; callers may pass a
+    restricted list (e.g. silver-only) to measure the leakage delta.
+    """
+    excluded_fps: set[tuple[str, ...]] = set()
+    for s in excluded_sentences:
+        fp = s.fingerprint() if hasattr(s, "fingerprint") else tuple(
+            t.form.lower() for t in s.tokens
+        )
+        if fp:
+            excluded_fps.add(fp)
+
+    if source_paths is None:
+        source_paths = [
+            config.TRAIN_CONLLU,
+            config.SILVER_SENTENCES_CONLLU,
+            config.SILVER_APERTIUM_CONLLU,
+        ]
+
+    counter: Counter = Counter()
+    n_excluded = 0
+    n_kept = 0
+    for path in source_paths:
+        for fp, block in _iter_sentence_blocks(path):
+            if fp in excluded_fps:
+                n_excluded += 1
+                continue
+            # Count this sentence's surface forms.
+            for line in block:
+                line = line.rstrip("\n")
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split("\t")
+                if len(parts) < 4 or "-" in parts[0] or "." in parts[0]:
+                    continue
+                form = parts[1].strip()
+                if form:
+                    counter[form.lower()] += 1
+            n_kept += 1
+
+    freq = dict(counter)
+    build_fold_frequency_dict.last_counts = {
+        "n_source_sentences_kept": n_kept,
+        "n_source_sentences_excluded": n_excluded,
+        "unique_forms": len(freq),
+    }
+    return freq
 
 
 # Module-level cache so repeated imports don't re-scan the corpora.

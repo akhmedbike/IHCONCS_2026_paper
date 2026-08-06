@@ -197,6 +197,7 @@ def generate_candidates(
     max_candidates: int | None = None,
     *,
     index=None,
+    freq: dict[str, int] | None = None,
 ) -> list[tuple[str, float]]:
     """Return ranked [(candidate, energy)] for `token` under the given mode.
 
@@ -216,13 +217,19 @@ def generate_candidates(
 
     `index` optionally supplies a SymSpell index (e.g. a fold-specific one
     with test-fold forms excluded); it defaults to the global singleton.
+
+    `freq` optionally supplies a frequency dictionary (e.g. a leakage-free
+    per-fold dict built by experiments.freq.build_fold_frequency_dict); it
+    defaults to the global singleton. Passing a per-fold dict removes the
+    gold-form leakage that the global dict carries into the dl_freq /
+    dl_freq_morph ranking (see experiments.freq docstring).
     """
     if max_candidates is None:
         max_candidates = config.MAX_CANDIDATES
 
     idx = index if index is not None else _get_symindex()
     raw = _symspell_retrieve(token, idx)
-    freq = _get_freq()
+    freq = freq if freq is not None else _get_freq()
 
     # First pass: build (candidate, distance, freq) for surviving candidates.
     survivors: list[tuple[str, int, int, bool]] = []  # (word, dist, freq, is_stem)

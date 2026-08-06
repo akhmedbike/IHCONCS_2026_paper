@@ -54,8 +54,8 @@ def table_candidate_recall() -> str:
         "**Table 3.** Candidate generation on the controlled error set "
         f"({d['n_folds']}-fold × {d['n_seeds']} seeds).",
         "",
-        "| Configuration | Recall@1 | Recall@5 | Recall@10 | MRR | Index coverage |",
-        "|---|---|---|---|---|---|",
+        "| Configuration | Recall@1 | Recall@5 | Recall@10 | MRR |",
+        "|---|---|---|---|---|",
     ]
     label = {"dl": "Damerau–Levenshtein (δ ≤ 2)",
              "dl_freq": "DL + corpus-frequency ranking",
@@ -67,9 +67,28 @@ def table_candidate_recall() -> str:
         a = d["modes"][mode]
         lines.append(
             f"| {label[mode]} | {_ms(a['recall_at_1'])} | {_ms(a['recall_at_5'])} | "
-            f"{_ms(a['recall_at_10'])} | {_ms(a['mrr'])} | {_ms(a['index_coverage'])} |"
+            f"{_ms(a['recall_at_10'])} | {_ms(a['mrr'])} |"
         )
     lines.append("")
+    # Note the near-equality of Recall@10 and the generator's index coverage
+    # (the share of corrupted tokens for which any candidate is retrieved):
+    # they coincide to display precision in every mode, so the standalone
+    # "Index coverage" column is redundant and was dropped. The substantive
+    # point it carried is the gap between Recall@1 and Recall@10 for the
+    # proposed generator — once the gold form is reachable it almost always
+    # ranks first (R@1 / R@10 ≈ 0.82), so the bottleneck is candidate
+    # reachability, not ranking quality.
+    fm = d["modes"].get("dl_freq_morph")
+    if fm:
+        ratio = fm["recall_at_1"]["mean"] / fm["recall_at_10"]["mean"] \
+            if fm["recall_at_10"]["mean"] > 0 else 0.0
+        lines.append(
+            f"For the proposed generator, Recall@1 / Recall@10 = {_pct(ratio)}% "
+            f"({fm['recall_at_1']['mean']:.3f} / {fm['recall_at_10']['mean']:.3f}): "
+            f"when the gold form is reachable it almost always ranks first, so the "
+            f"limiting factor is candidate generation, not ranking."
+        )
+        lines.append("")
     # Per-category breakdown for the proposed mode (dl_freq_morph). Falls back
     # to dl_fst_filter for older JSONs that don't carry the morph breakdown.
     cat_key = "per_category_dl_freq_morph" if "per_category_dl_freq_morph" in d \
@@ -163,7 +182,8 @@ def table_correction() -> str:
     ]
     pretty = {"dl_freq_top1": "DL + frequency, top-1 (no REVIEW)",
               "binary": "Binary corrector (− REVIEW routing)",
-              "three_way": "**Proposed neuro-symbolic (KEEP/CORRECT/REVIEW)**"}
+              "three_way": "**Proposed neuro-symbolic (KEEP/CORRECT/REVIEW)**",
+              "noop": "No-op (input untouched)"}
     for name in ("dl_freq_top1", "binary", "three_way"):
         if name not in d["configs"]:
             continue
@@ -171,6 +191,16 @@ def table_correction() -> str:
         lines.append(
             f"| {pretty[name]} | {_ms(a['precision'])} | {_ms(a['recall'])} | "
             f"{_ms(a['f05'])} | {_ms(a['fcr'])} | {_ms(a['cer'])} | {_ms(a['wer'])} |"
+        )
+    # No-op baseline: CER/WER floor only (it corrects nothing, so P/R/F₀.₅/FCR
+    # are undefined). This is the row that answers "wouldn't doing nothing
+    # score just as well on CER/WER?" — a system that barely intervenes has
+    # CER/WER close to the untouched input's.
+    if "noop" in d["configs"]:
+        na = d["configs"]["noop"]
+        lines.append(
+            f"| {pretty['noop']} | — | — | — | — | "
+            f"{_ms(na['cer'])} | {_ms(na['wer'])} |"
         )
     lines.append("")
     # 95% CI on F0.5 for the proposed system and the strongest baseline.
@@ -187,21 +217,30 @@ def table_correction() -> str:
             f"(TP={conf['tp']}, FP={conf['fp']}, FN={conf['fn']})"
         )
     lines.append("")
-    # Paired significance test (Reviewer #2 request).
+    # Paired significance tests (Reviewer #2 request). Reported for BOTH F₀.₅
+    # and precision: under the leakage-free protocol the F₀.₅ gap is not
+    # significant, but the precision gap is the claim the paper actually makes,
+    # and it is large and stable enough to clear significance on its own.
     sig = d.get("significance")
     if sig and "error" not in sig:
-        b = sig.get("bootstrap", {})
-        w = sig.get("wilcoxon", {})
-        n_pairs = b.get("n_pairs", "?")
-        md = b.get("mean_diff", 0.0)
-        lo, hi = b.get("ci95", [0.0, 0.0])
-        pb = b.get("p_value", float("nan"))
-        pw = w.get("p_value", float("nan"))
-        lines.append(
-            f"Paired significance ({n_pairs} fold×seed pairs), three-way vs binary "
-            f"on F₀.₅: Δ = {md:+.4f} (95% bootstrap CI [{lo:+.4f}, {hi:+.4f}]); "
-            f"paired bootstrap p = {pb:.4f}, Wilcoxon p = {pw:.4f}."
-        )
+        metric_label = {"f05": "F₀.₅", "precision": "precision"}
+        for metric in ("f05", "precision"):
+            entry = sig.get(metric)
+            if not entry:
+                continue
+            b = entry.get("bootstrap", {})
+            w = entry.get("wilcoxon", {})
+            n_pairs = b.get("n_pairs", "?")
+            md = b.get("mean_diff", 0.0)
+            lo, hi = b.get("ci95", [0.0, 0.0])
+            pb = b.get("p_value", float("nan"))
+            pw = w.get("p_value", float("nan"))
+            lines.append(
+                f"Paired significance ({n_pairs} fold×seed pairs), three-way vs binary "
+                f"on {metric_label.get(metric, metric)}: Δ = {md:+.4f} "
+                f"(95% bootstrap CI [{lo:+.4f}, {hi:+.4f}]); "
+                f"paired bootstrap p = {pb:.4f}, Wilcoxon p = {pw:.4f}."
+            )
         lines.append("")
     return "\n".join(lines)
 
@@ -210,9 +249,16 @@ def table_fcr() -> str:
     d = _load("fcr")
     if d is None:
         return "_(fcr.json not found — run experiments/eval_fcr.py)_\n"
+    # Caption reflects the corrected protocol: fold 0 is held out for
+    # threshold calibration, so FCR is reported on the remaining folds only.
+    eval_folds = d.get("eval_folds")
+    fold_note = (
+        f"calibration fold 0 held out, evaluated on folds {eval_folds}"
+        if eval_folds is not None else f"{d['n_folds']}-fold CV"
+    )
     lines = [
         "**Table 5.** False-correction rate on unmodified normative text "
-        f"(UD Kazakh-KTB, {d['n_folds']}-fold CV, pooled over {d['n_test_sentences']} test sentences).",
+        f"(UD Kazakh-KTB, {fold_note}, pooled over {d['n_test_sentences']} test sentences).",
         "",
         "| Configuration | FCR | KEEP | CORRECT | REVIEW |",
         "|---|---|---|---|---|",
@@ -225,14 +271,49 @@ def table_fcr() -> str:
             f"| {label} | {_pct(m['fcr'])} ({m['n_changed']}/{m['n_tokens']}) | "
             f"{mix.get('KEEP', 0)} | {mix.get('CORRECT', 0)} | {mix.get('REVIEW', 0)} |"
         )
+    # Per-fold range so the fold-to-fold variability (and any outlier) is
+    # visible rather than hidden behind the pooled mean. The binary corrector's
+    # last evaluated fold runs several times higher than the rest.
     lines.append("")
+    lines.append("Per-fold FCR (binary corrector):")
+    bin_folds = d["binary"].get("fcr_per_fold", [])
+    if bin_folds:
+        lo, hi = min(bin_folds), max(bin_folds)
+        rng = "…" if len(bin_folds) > 2 else ", "
+        seq = rng.join(f"{f*100:.2f}%" for f in bin_folds)
+        lines.append(
+            f"- range [{lo*100:.2f}%, {hi*100:.2f}%] across {len(bin_folds)} folds "
+            f"(per-fold: {seq})"
+        )
+    lines.append("")
+    # Two parallel stratifications expose the lexicon-miss artefact: the
+    # "not_in_lexicon" bucket is large (~71%) because kazmorph.lexicons are
+    # lemma lists queried with surface forms, whereas the analyser-based cut
+    # shows only ~0.2% genuinely unparseable tokens.
     lines.append("Stratified FCR by token class (binary corrector, pooled):")
     lines.append("")
     lines.append("| Token class | N | FCR |")
     lines.append("|---|---|---|")
     for cls, v in sorted(d["binary"]["by_class"].items(), key=lambda x: -x[1]["total"]):
-        lines.append(f"| {cls} | {v['total']} | {_pct(v['fcr'])} ({v['changed']}) |")
+        lines.append(f"| {cls.replace('_', ' ')} | {v['total']} | {_pct(v['fcr'])} ({v['changed']}) |")
     lines.append("")
+    by_an = d["binary"].get("by_analyzer")
+    if by_an:
+        lines.append("By morphological analyser outcome (binary corrector, pooled):")
+        lines.append("")
+        lines.append("| Analyser | N | FCR |")
+        lines.append("|---|---|---|")
+        for cls, v in sorted(by_an.items(), key=lambda x: -x[1]["total"]):
+            lines.append(f"| {cls.replace('_', ' ')} | {v['total']} | {_pct(v['fcr'])} ({v['changed']}) |")
+        lines.append("")
+        lines.append(
+            "The `not_in_lexicon` bucket (surface form absent from the noun/verb/"
+            "adj lemma lists) covers the majority of tokens, but the analyser-based "
+            "`rma_unknown` bucket covers only a fraction of a percent: the large "
+            "lexicon-miss class reflects a narrow frequency lexicon, not words the "
+            "system cannot parse."
+        )
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -253,6 +334,104 @@ def table_risk_coverage() -> str:
             f"{p['n_auto']} | {p['n_incorrect']} |"
         )
     lines.append("")
+    return "\n".join(lines)
+
+
+def table_leakage_ablation() -> str:
+    """Leaky-vs-clean comparison showing how the frequency-dictionary leakage
+    inflated the headline F₀.₅ and the significance test.
+
+    The leakage-free protocol (per-fold frequency dict, test sentences excluded
+    from all sources) is the methodologically correct one and is what the main
+    tables report. The leaky variant (global dict built from train_split +
+    silver, ~85% pool overlap) is shown here only to quantify the effect of the
+    leakage that the original protocol carried, and to make explicit that the
+    originally reported p = 0.002 was partly an artefact of that overlap.
+    """
+    clean = _load("correction")
+    leaky = _load("correction_leaky")
+    if clean is None or leaky is None:
+        return "_(correction.json and/or correction_leaky.json not found — "
+        "run experiments/eval_correction.py and eval_correction.py --leaky)_\n"
+    pretty = {"dl_freq_top1": "DL + frequency, top-1",
+              "binary": "Binary corrector",
+              "three_way": "Three-way (proposed)"}
+    lines = [
+        "**Table 4b.** Effect of the frequency-dictionary leakage on correction "
+        "quality (same B1-fixed recall denominator; folds 1–4 × 3 seeds).",
+        "",
+        "| System | F₀.₅ (leaky) | F₀.₅ (leakage-free) | Δ pp | "
+        "Recall (leaky) | Recall (leakage-free) |",
+        "|---|---|---|---|---|---|",
+    ]
+    for name in ("dl_freq_top1", "binary", "three_way"):
+        c = clean["configs"][name]
+        l = leaky["configs"][name]
+        df = (l["f05"]["mean"] - c["f05"]["mean"]) * 100
+        lines.append(
+            f"| {pretty[name]} | {_ms(l['f05'])} | {_ms(c['f05'])} | "
+            f"{df:+.1f} | {_ms(l['recall'])} | {_ms(c['recall'])} |"
+        )
+    lines.append("")
+    # Significance under both protocols — the key methodological point.
+    # Handle both the old flat significance schema ({bootstrap, wilcoxon}) and
+    # the new per-metric schema ({f05: {bootstrap, wilcoxon}, precision: {...}}).
+    def _sig_f05(d):
+        s = d.get("significance", {})
+        if "f05" in s:
+            return s["f05"]
+        return s  # old flat schema: bootstrap/wilcoxon at top level
+
+    lines.append("Significance of the three-way vs binary F₀.₅ difference under "
+                 "the two protocols:")
+    lines.append("")
+    lines.append("| Protocol | Δ F₀.₅ | 95% bootstrap CI | bootstrap p | Wilcoxon p |")
+    lines.append("|---|---|---|---|---|")
+    for tag, d in (("Leakage-free (reported)", clean), ("Leaky (original)", leaky)):
+        entry = _sig_f05(d)
+        if "error" in entry:
+            lines.append(f"| {tag} | — | — | (error) | — |")
+            continue
+        b = entry.get("bootstrap", {})
+        w = entry.get("wilcoxon", {})
+        lo, hi = b.get("ci95", [0.0, 0.0])
+        lines.append(
+            f"| {tag} | {b.get('mean_diff', 0.0):+.4f} | "
+            f"[{lo:+.4f}, {hi:+.4f}] | {b.get('p_value', float('nan')):.4f} | "
+            f"{w.get('p_value', float('nan')):.4f} |"
+        )
+    lines.append("")
+    lines.append(
+        "The leakage-free protocol removes gold-form overlap between the "
+        "frequency dictionary and the test folds (see `experiments/freq.py`, "
+        "`build_fold_frequency_dict`). Under the leakage-free protocol the "
+        "three-way system is NOT ahead of the binary baseline on F₀.₅ "
+        f"(Δ = {clean['significance']['f05']['bootstrap']['mean_diff']:+.3f}, "
+        "n.s.); its advantages over binary are on precision "
+        f"({clean['configs']['three_way']['precision']['mean']*100:.1f}% vs "
+        f"{clean['configs']['binary']['precision']['mean']*100:.1f}%, Wilcoxon "
+        f"p = {clean['significance']['precision']['wilcoxon']['p_value']:.4f}) "
+        "and FCR (0.00% vs 1.90%). The leaky protocol inverted the F₀.₅ "
+        "ordering by inflating the frequency-ranking modes; reporting both "
+        "makes that visible rather than implicit. The leakage affects only the "
+        "frequency-ranking modes (dl_freq, dl_freq_morph); dl and dl_fst_filter, "
+        "which do not use the frequency dict, are unchanged."
+    )
+    lines.append("")
+    # Also show the candidate-recall leakage effect for the proposed generator.
+    cc = _load("candidate_recall")
+    cl = _load("candidate_recall_leaky")
+    if cc and cl:
+        lines.append("Candidate Recall@1 under the two protocols (proposed generator):")
+        lines.append("")
+        lines.append("| Metric | Leaky | Leakage-free | Δ pp |")
+        lines.append("|---|---|---|---|")
+        for metric in ("recall_at_1", "recall_at_5", "recall_at_10", "mrr"):
+            lm = cl["modes"]["dl_freq_morph"][metric]["mean"]
+            cm = cc["modes"]["dl_freq_morph"][metric]["mean"]
+            lines.append(f"| {metric.replace('_', ' ')} | "
+                         f"{_pct(lm)} | {_pct(cm)} | {(lm-cm)*100:+.1f} |")
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -289,6 +468,7 @@ def main() -> None:
         ("## Analyser coverage (Section IV-C)", table_coverage()),
         ("## Table 3 — Candidate generation", table_candidate_recall()),
         ("## Table 4 — Final correction", table_correction()),
+        ("## Table 4b — Frequency-dictionary leakage ablation", table_leakage_ablation()),
         ("## Table 5 — False-correction rate (ablation: − REVIEW)", table_fcr()),
         ("## Table 6 — Risk–coverage", table_risk_coverage()),
         ("## Table 7 — Component ablation", table_ablation()),

@@ -13,4 +13,12 @@ if [ ! -x "$VENV_PATH/bin/python" ]; then
     echo "       or set PAPER3_VENV to point at an existing venv." >&2
     exit 1
 fi
+# Pin Python's hash seed so model/tokenizer loading is reproducible across
+# processes. The KazBERT forward pass is deterministic within a process, but
+# transformers/sklearn touch Python's global RNG and dict ordering during model
+# construction, and those depend on PYTHONHASHSEED which is read at interpreter
+# startup. Without this, two `bin/py` runs on identical inputs differ by ~1-2
+# percentage points in TP/FP (verified). Override by exporting PYTHONHASHSEED
+# in the caller's environment.
+export PYTHONHASHSEED="${PYTHONHASHSEED:-42}"
 exec "$VENV_PATH/bin/python" "$@"

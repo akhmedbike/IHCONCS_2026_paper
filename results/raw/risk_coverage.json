@@ -1,76 +1,76 @@
 {
   "n_evaluated": 1331,
-  "n_no_candidate": 353,
+  "n_no_candidate": 352,
   "curve": [
     {
       "threshold": 0.05,
-      "risk": 0.6897069872276483,
+      "risk": 0.7107438016528925,
       "coverage": 1.0,
       "n_auto": 1331,
-      "n_incorrect": 918,
+      "n_incorrect": 946,
       "n_total": 1331
     },
     {
       "threshold": 0.1,
-      "risk": 0.6714743589743589,
-      "coverage": 0.9376408715251691,
-      "n_auto": 1248,
-      "n_incorrect": 838,
+      "risk": 0.6924939467312349,
+      "coverage": 0.9308790383170549,
+      "n_auto": 1239,
+      "n_incorrect": 858,
       "n_total": 1331
     },
     {
       "threshold": 0.15,
-      "risk": 0.5466666666666666,
-      "coverage": 0.4507888805409467,
-      "n_auto": 600,
-      "n_incorrect": 328,
+      "risk": 0.5753424657534246,
+      "coverage": 0.4387678437265214,
+      "n_auto": 584,
+      "n_incorrect": 336,
       "n_total": 1331
     },
     {
       "threshold": 0.2,
-      "risk": 0.5857142857142857,
-      "coverage": 0.31555221637866265,
-      "n_auto": 420,
-      "n_incorrect": 246,
+      "risk": 0.6184538653366584,
+      "coverage": 0.3012772351615327,
+      "n_auto": 401,
+      "n_incorrect": 248,
       "n_total": 1331
     },
     {
       "threshold": 0.25,
-      "risk": 0.5625,
-      "coverage": 0.24042073628850488,
-      "n_auto": 320,
-      "n_incorrect": 180,
+      "risk": 0.5894039735099338,
+      "coverage": 0.22689706987227648,
+      "n_auto": 302,
+      "n_incorrect": 178,
       "n_total": 1331
     },
     {
       "threshold": 0.3,
-      "risk": 0.3045977011494253,
-      "coverage": 0.13072877535687452,
-      "n_auto": 174,
-      "n_incorrect": 53,
+      "risk": 0.32,
+      "coverage": 0.11269722013523667,
+      "n_auto": 150,
+      "n_incorrect": 48,
       "n_total": 1331
     },
     {
       "threshold": 0.4,
-      "risk": 0.12857142857142856,
-      "coverage": 0.05259203606311044,
-      "n_auto": 70,
-      "n_incorrect": 9,
+      "risk": 0.2222222222222222,
+      "coverage": 0.027047332832456798,
+      "n_auto": 36,
+      "n_incorrect": 8,
       "n_total": 1331
     },
     {
       "threshold": 0.5,
-      "risk": 0.15384615384615385,
-      "coverage": 0.009767092411720512,
-      "n_auto": 13,
-      "n_incorrect": 2,
+      "risk": 0.1111111111111111,
+      "coverage": 0.0067618332081141996,
+      "n_auto": 9,
+      "n_incorrect": 1,
       "n_total": 1331
     }
   ],
   "operating_point": {
-    "tau_c": 0.15,
+    "tau_c": 0.1,
     "tau_e": 0.05,
-    "tau_m": 0.0
+    "tau_m": 0.02
   },
   "thresholds_swept": [
     0.05,
