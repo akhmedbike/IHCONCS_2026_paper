@@ -8,7 +8,7 @@ This repository accompanies the **work-in-progress / practical experience
 report** version of the paper. It implements the five measurable quantities
 the revision adds to Section IV, on top of the vendored `kazmorph` morphological
 pipeline. No neural networks are trained here — the KazBERT POS and lemma
-checkpoints are restored from the `kazmorph-2026` project and used for inference
+checkpoints are restored from the `kazmorph` project and used for inference
 only.
 
 ## What this repo measures
@@ -25,6 +25,8 @@ Significance (paired bootstrap, 10 000 resamples, three-way vs binary on F₀.�
 Δ = +0.047, 95% CI [+0.017, +0.075], **p = 0.002** (Wilcoxon p = 0.019).
 
 ## Quick start
+
+Download models from Zenodo (https://doi.org/10.5281/zenodo.21820946)
 
 ```bash
 # 1. Create a Python 3.14 venv (uv is the supported installer). The venv MUST
@@ -92,7 +94,7 @@ Limitations.
 ```
 paper3/
   config.py                  # paths, thresholds, seeds — single source of truth
-  kazmorph/                  # vendored morphological pipeline (from kazmorph-2026)
+  kazmorph/                  # vendored morphological pipeline (from kazmorph, repo - https://github.com/akhmedbike/kazmorph)
   data/                      # UD Kazakh-KTB + silver corpora
   models/                    # restored KazBERT POS + lemma checkpoints
   experiments/
@@ -112,7 +114,7 @@ paper3/
     run_all.py               # orchestrator
   scripts/
     make_tables.py           # assembles Tables 3–6 from results/raw/*.json
-    restore_models.sh        # restore KazBERT weights (not committed) from kazmorph-2026
+    restore_models.sh        # restore KazBERT weights (not committed) from kazmorph
   results/
     raw/                     # per-experiment JSON (committed snapshot, see below)
     tables/                  # all_tables.md — paste into the manuscript
@@ -175,14 +177,14 @@ explicitly in the Discussion / Limitations:
   A parallel implementation of the gated encoder exists in the group's
   `paper1` (CAGF) repository and is cited as a feasibility reference.
 - **Joint training objective** — the POS and lemma checkpoints were trained
-  independently in `kazmorph-2026`; no joint loss is optimised here.
+  independently in `kazmorph`; no joint loss is optimised here.
 
 ## Provenance
 
-- `kazmorph/` — vendored copy of the `kazmorph-2026` package (commit as of
-  2026-08-04). See `kazmorph-2026/WORKLOG.md` for its development history. #todo add link to repo
+- `kazmorph/` — vendored copy of the `kazmorph` package (commit as of
+  2026-08-04). See `kazmorph/WORKLOG.md` for its development history.
 - `data/` — UD Kazakh-KTB (gold) + Apertium-derived silver corpora, copied
-  verbatim from `kazmorph-2026/data`.
+  verbatim from `kazmorph/data`.
 - `models/neural_pos` — KazBERT (`Eraly-ml/KazBERT`) fine-tuned for POS tagging,
   5-fold CV F1 ≈ 0.885. Restored from the
   `neural_pos.kazbert_nosilver_backup` checkpoint.
